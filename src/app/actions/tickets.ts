@@ -1083,3 +1083,240 @@ export async function getUserAssignedTicketsCount(): Promise<number> {
     return 0;
   }
 }
+
+/**
+ * Get ticket distribution statistics by status and priority
+ * Returns data formatted for charting
+ */
+export async function getTicketDistributionStats() {
+  try {
+    const workspaceId = await getCurrentUserWorkspaceId();
+
+    // Get all tickets for the workspace
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        OR: [{ workspaceId }, { business: { workspaceId } }],
+      },
+      select: {
+        status: true,
+        priority: true,
+      },
+    });
+
+    // Get unique statuses and priorities
+    const statuses = [...new Set(tickets.map((ticket) => ticket.status))];
+
+    // For each status, count tickets by priority
+    const distributionData = statuses.map((status) => {
+      const statusTickets = tickets.filter(
+        (ticket) => ticket.status === status
+      );
+
+      // Count by priority
+      const lowCount = statusTickets.filter((t) => t.priority === "low").length;
+      const mediumCount = statusTickets.filter(
+        (t) => t.priority === "medium"
+      ).length;
+      const highCount = statusTickets.filter(
+        (t) => t.priority === "high"
+      ).length;
+      const urgentCount = statusTickets.filter(
+        (t) => t.priority === "urgent"
+      ).length;
+
+      // Return data point for the chart
+      return {
+        status,
+        low: lowCount,
+        medium: mediumCount,
+        high: highCount,
+        urgent: urgentCount,
+        total: statusTickets.length,
+      };
+    });
+
+    return {
+      distributionData,
+      totalTickets: tickets.length,
+      statusCounts: statuses.map((status) => ({
+        status,
+        count: tickets.filter((t) => t.status === status).length,
+      })),
+      priorityCounts: [
+        {
+          priority: "low",
+          count: tickets.filter((t) => t.priority === "low").length,
+        },
+        {
+          priority: "medium",
+          count: tickets.filter((t) => t.priority === "medium").length,
+        },
+        {
+          priority: "high",
+          count: tickets.filter((t) => t.priority === "high").length,
+        },
+        {
+          priority: "urgent",
+          count: tickets.filter((t) => t.priority === "urgent").length,
+        },
+      ],
+    };
+  } catch (error) {
+    console.error("Error getting ticket distribution stats:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get support metrics for dashboard
+ * Returns key metrics about ticket system health
+ */
+export async function getSupportMetrics() {
+  try {
+    const workspaceId = await getCurrentUserWorkspaceId();
+    const now = new Date();
+    const oneWeekAgo = new Date(now);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    // Get all tickets for the workspace
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        OR: [{ workspaceId }, { business: { workspaceId } }],
+      },
+      include: {
+        comments: {
+          select: {
+            id: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+
+    // Calculate upcoming/overdue tickets
+    const overdueTickets = tickets.filter(
+      (ticket) =>
+        ticket.status !== "resolved" &&
+        ticket.status !== "closed" &&
+        ticket.dueDate &&
+        new Date(ticket.dueDate) < now
+    );
+
+    const upcomingDueTickets = tickets.filter(
+      (ticket) =>
+        ticket.status !== "resolved" &&
+        ticket.status !== "closed" &&
+        ticket.dueDate &&
+        new Date(ticket.dueDate) >= now &&
+        new Date(ticket.dueDate) <= new Date(now.setDate(now.getDate() + 3))
+    );
+
+    // Calculate tickets by status
+    const openTickets = tickets.filter(
+      (ticket) => ticket.status !== "resolved" && ticket.status !== "closed"
+    );
+
+    const resolvedLastWeek = tickets.filter(
+      (ticket) =>
+        (ticket.status === "resolved" || ticket.status === "closed") &&
+        ticket.resolvedAt &&
+        new Date(ticket.resolvedAt) >= oneWeekAgo
+    );
+
+    // Calculate average first response time
+    let totalFirstResponseTime = 0;
+    let ticketsWithFirstResponse = 0;
+
+    tickets.forEach((ticket) => {
+      if (ticket.comments.length > 0) {
+        const ticketCreatedAt = new Date(ticket.createdAt);
+        const firstCommentAt = new Date(ticket.comments[0].createdAt);
+        const responseTimeHours =
+          (firstCommentAt.getTime() - ticketCreatedAt.getTime()) /
+          (1000 * 60 * 60);
+
+        if (responseTimeHours >= 0) {
+          totalFirstResponseTime += responseTimeHours;
+          ticketsWithFirstResponse++;
+        }
+      }
+    });
+
+    const avgFirstResponseHours =
+      ticketsWithFirstResponse > 0
+        ? totalFirstResponseTime / ticketsWithFirstResponse
+        : 0;
+
+    // Calculate average resolution time
+    let totalResolutionTime = 0;
+    let ticketsResolved = 0;
+
+    tickets.forEach((ticket) => {
+      if (ticket.resolvedAt) {
+        const ticketCreatedAt = new Date(ticket.createdAt);
+        const resolvedAt = new Date(ticket.resolvedAt);
+        const resolutionTimeHours =
+          (resolvedAt.getTime() - ticketCreatedAt.getTime()) / (1000 * 60 * 60);
+
+        if (resolutionTimeHours >= 0) {
+          totalResolutionTime += resolutionTimeHours;
+          ticketsResolved++;
+        }
+      }
+    });
+
+    const avgResolutionHours =
+      ticketsResolved > 0 ? totalResolutionTime / ticketsResolved : 0;
+
+    // Top priority tickers
+    const highPriorityTickets = tickets.filter(
+      (ticket) =>
+        ticket.status !== "resolved" &&
+        ticket.status !== "closed" &&
+        (ticket.priority === "high" || ticket.priority === "urgent")
+    );
+
+    return {
+      totalTickets: tickets.length,
+      openTickets: openTickets.length,
+      resolvedLastWeek: resolvedLastWeek.length,
+      overdueTickets: overdueTickets.length,
+      upcomingDueTickets: upcomingDueTickets.length,
+      highPriorityTickets: highPriorityTickets.length,
+      avgFirstResponseHours,
+      avgResolutionHours,
+      resolutionRate:
+        tickets.length > 0 ? (ticketsResolved / tickets.length) * 100 : 0,
+      // Get sample of urgent tickets for display
+      urgentTickets: highPriorityTickets
+        .sort(
+          (a, b) =>
+            new Date(a.dueDate || 0).getTime() -
+            new Date(b.dueDate || 0).getTime()
+        )
+        .slice(0, 3)
+        .map((ticket) => ({
+          id: ticket.id,
+          title: ticket.title,
+          priority: ticket.priority,
+          dueDate: ticket.dueDate,
+          businessName: ticket.submittedCompanyName || "",
+        })),
+    };
+  } catch (error) {
+    console.error("Error getting support metrics:", error);
+    return {
+      totalTickets: 0,
+      openTickets: 0,
+      resolvedLastWeek: 0,
+      overdueTickets: 0,
+      upcomingDueTickets: 0,
+      highPriorityTickets: 0,
+      avgFirstResponseHours: 0,
+      avgResolutionHours: 0,
+      resolutionRate: 0,
+      urgentTickets: [],
+    };
+  }
+}

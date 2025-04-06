@@ -32,7 +32,12 @@ import {
   BarChart3,
   DollarSign,
   Activity,
+  Ticket,
 } from "lucide-react";
+import { UpcomingActivities } from "@/components/dashboard/upcoming-activities";
+import { getUpcomingActivities } from "./actions/activities";
+import { TicketDistributionChart } from "@/components/dashboard/ticket-distribution-chart";
+import { SupportOverview } from "@/components/dashboard/support-overview";
 
 // Make the homepage a server component to fetch data
 export default async function Homepage() {
@@ -84,6 +89,9 @@ export default async function Homepage() {
       potensiellVerdi: true,
     },
   });
+
+  // Fetch upcoming activities
+  const upcomingActivities = await getUpcomingActivities(5);
 
   const totalPotentialValue = potentialValueResult._sum.potensiellVerdi || 0;
 
@@ -187,10 +195,10 @@ export default async function Homepage() {
             </Card>
           </div>
 
-          {/* Pipeline and Recent Leads */}
-          <div className="grid gap-6 md:grid-cols-2">
+          {/* Main dashboard content - three columns on large screens */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
             {/* Pipeline Overview */}
-            <Card className="md:col-span-1">
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
@@ -313,7 +321,7 @@ export default async function Homepage() {
             </Card>
 
             {/* Recent Leads */}
-            <Card className="md:col-span-1">
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle>Siste Leads</CardTitle>
                 <CardDescription>
@@ -380,6 +388,24 @@ export default async function Homepage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Upcoming Activities */}
+            <Card className="lg:col-span-1">
+              <UpcomingActivities activities={upcomingActivities} />
+            </Card>
+          </div>
+
+          {/* Additional dashboard charts */}
+          <div className="grid gap-6 md:grid-cols-2 mb-8">
+            {/* Ticket Distribution Chart */}
+            <div className="md:col-span-1">
+              <TicketDistributionChart />
+            </div>
+
+            {/* Support Overview */}
+            <div className="md:col-span-1">
+              <SupportOverview />
+            </div>
           </div>
         </main>
       </SidebarInset>
