@@ -35,86 +35,85 @@ import { NavSecondary } from "./nav-secondary";
 import { useSession } from "@/lib/auth/client";
 import { TicketBadge } from "./ticket-badge";
 import { InboxBadge } from "./inbox-badge";
-
-const data = {
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: IconDashboard,
-    },
-    {
-      title: "Inbox",
-      url: "/inbox",
-      icon: IconInbox,
-      badge: <InboxBadge />,
-    },
-    {
-      title: "Leads",
-      url: "/leads",
-      icon: IconUsers,
-    },
-    {
-      title: "Personer",
-      url: "/customers",
-      icon: IconUserCircle,
-    },
-    {
-      title: "Bedrifter",
-      url: "/businesses",
-      icon: IconBuildingSkyscraper,
-    },
-    {
-      title: "Annonser",
-      url: "/ads",
-      icon: IconBuildingStore,
-    },
-    {
-      title: "Jobbsøknader",
-      url: "/applications",
-      icon: IconUserSearch,
-    },
-  ],
-  support: [
-    {
-      name: "Tickets",
-      url: "/tickets",
-      icon: IconTicket,
-      badge: <TicketBadge />,
-    },
-    {
-      name: "Email",
-      url: "/email",
-      icon: IconMail,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
-  ],
-};
+import { useCommandPalette } from "@/providers/command-palette-provider";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const { data: session, isPending } = useSession();
+  const { toggle: toggleCommandPalette } = useCommandPalette();
 
   // Function to check if a path is active
   const isActivePath = (path: string) => {
     if (path === "/dashboard" && pathname === "/") return true;
     return pathname === path;
+  };
+
+  // Sidebar navigation data
+  const data = {
+    navMain: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: IconDashboard,
+      },
+      {
+        title: "Inbox",
+        url: "/inbox",
+        icon: IconInbox,
+        badge: <InboxBadge />,
+      },
+      {
+        title: "Leads",
+        url: "/leads",
+        icon: IconUsers,
+      },
+      {
+        title: "Personer",
+        url: "/customers",
+        icon: IconUserCircle,
+      },
+      {
+        title: "Bedrifter",
+        url: "/businesses",
+        icon: IconBuildingSkyscraper,
+      },
+      {
+        title: "Annonser",
+        url: "/ads",
+        icon: IconBuildingStore,
+      },
+      {
+        title: "Jobbsøknader",
+        url: "/applications",
+        icon: IconUserSearch,
+      },
+    ],
+    support: [
+      {
+        name: "Tickets",
+        url: "/tickets",
+        icon: IconTicket,
+        badge: <TicketBadge />,
+      },
+    ],
+    navSecondary: [
+      {
+        title: "Innstillinger",
+        url: "/settings",
+        icon: IconSettings,
+      },
+      {
+        title: "Få hjelp",
+        url: "#",
+        icon: IconHelp,
+      },
+      {
+        title: "Søk",
+        url: "#",
+        icon: IconSearch,
+        action: toggleCommandPalette,
+      },
+    ],
   };
 
   // Update data with active states

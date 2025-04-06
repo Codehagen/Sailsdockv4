@@ -22,6 +22,7 @@ export function NavSecondary({
     title: string;
     url: string;
     icon: Icon;
+    action?: () => void;
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -38,10 +39,17 @@ export function NavSecondary({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
-                <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </a>
+                {item.action ? (
+                  <button onClick={item.action}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </button>
+                ) : (
+                  <a href={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </a>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
