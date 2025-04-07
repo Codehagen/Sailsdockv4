@@ -14,12 +14,14 @@ import { columns } from "@/components/customer/columns";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ImportEmailWizard } from "@/components/customer/import-email-wizard";
 import { checkEmailImportAvailability } from "@/app/actions/customer";
+import { AddBusinessSheet } from "@/components/customer/add-business-sheet";
 
 export default function CustomersPage() {
   // State to manage customers data
   const [customers, setCustomers] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImportWizard, setShowImportWizard] = useState(false);
+  const [showAddBusinessSheet, setShowAddBusinessSheet] = useState(false);
   const [importStatus, setImportStatus] = useState<{
     available: boolean;
     emailCount?: number;
@@ -86,7 +88,10 @@ export default function CustomersPage() {
             </p>
           </div>
 
-          <Button className="flex items-center gap-2">
+          <Button
+            className="flex items-center gap-2"
+            onClick={() => setShowAddBusinessSheet(true)}
+          >
             <PlusCircle className="h-4 w-4" />
             <span>Ny kunde</span>
           </Button>
@@ -124,6 +129,13 @@ export default function CustomersPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Add Business Sheet */}
+      <AddBusinessSheet
+        open={showAddBusinessSheet}
+        onOpenChange={setShowAddBusinessSheet}
+        onBusinessAdded={refreshCustomers}
+      />
     </>
   );
 }
