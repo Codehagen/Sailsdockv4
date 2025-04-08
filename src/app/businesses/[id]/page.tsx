@@ -1,32 +1,32 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
+import Link from "next/link";
 import {
   ChevronLeft,
   Building2,
   Phone,
   Mail,
+  ExternalLink,
+  Link as LinkIcon,
   Globe,
-  MapPin,
-  BarChart3,
-  Users,
   CircleDollarSign,
+  Users,
+  MapPin,
+  Check,
+  Briefcase,
+  MoreHorizontal,
+  Twitter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-
-import { Business, CustomerStage } from "@prisma/client";
+import { Separator } from "@/components/ui/separator";
 import { getBusinessById } from "@/app/actions/businesses/actions";
-import { BusinessTabs } from "@/components/business/business-tabs";
+import { ModifiedBusinessTabs } from "@/components/business/modified-business-tabs";
+import { CustomerStage } from "@prisma/client";
+import { formatDistanceToNow, format } from "date-fns";
+import { nb } from "date-fns/locale";
+import { PageHeader } from "@/components/page-header";
 
 interface BusinessDetailsPageProps {
   params: {
@@ -37,260 +37,315 @@ interface BusinessDetailsPageProps {
 export default async function BusinessDetailsPage({
   params,
 }: BusinessDetailsPageProps) {
-  // Ensure params is properly handled
-  const { id } = params;
-  const business = await getBusinessById(id);
+  const businessId = params.id;
+  const business = await getBusinessById(businessId);
 
   if (!business) {
     return notFound();
   }
 
-  // Function to get the stage badge
-  const getStageBadge = (stage: CustomerStage) => {
-    const stageConfig: Record<
-      CustomerStage,
-      {
-        label: string;
-        variant: "default" | "outline" | "secondary" | "destructive";
-      }
-    > = {
-      lead: { label: "Lead", variant: "outline" },
-      prospect: { label: "Prospekt", variant: "secondary" },
-      qualified: { label: "Kvalifisert", variant: "secondary" },
-      offer_sent: { label: "Tilbud sendt", variant: "default" },
-      offer_accepted: { label: "Tilbud akseptert", variant: "default" },
-      declined: { label: "Avslått", variant: "destructive" },
-      customer: { label: "Kunde", variant: "default" },
-      churned: { label: "Tapt", variant: "destructive" },
-    };
+  const formatDate = (date: Date | null | undefined) => {
+    if (!date) return "-";
+    return format(new Date(date), "dd.MM.yyyy", { locale: nb });
+  };
 
-    const config = stageConfig[stage];
-    return (
-      <Badge variant={config.variant} className="ml-2">
-        {config.label}
-      </Badge>
-    );
+  const formatRelativeDate = (date: Date | null | undefined) => {
+    if (!date) return "-";
+    return formatDistanceToNow(new Date(date), {
+      locale: nb,
+      addSuffix: false,
+    });
+  };
+
+  const formatCurrency = (amount: number, currency: string = "NOK") => {
+    return new Intl.NumberFormat("nb-NO", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   // Find primary contact if exists
   const primaryContact = business.contacts.find((contact) => contact.isPrimary);
 
+  // Format company data
+  const companyLink = business.website
+    ? business.website.startsWith("http")
+      ? business.website
+      : `https://${business.website}`
+    : null;
+
+  const linkedinUrl = `https://linkedin.com/company/${business.name
+    .toLowerCase()
+    .replace(/\s+/g, "-")}`;
+
   return (
-    <>
+    <div className="flex flex-col h-screen">
       <PageHeader
         items={[
-          { label: "Dashboard", href: "/" },
+          { label: "Dashbord", href: "/" },
           { label: "Bedrifter", href: "/businesses" },
           { label: business.name || "Bedriftsdetaljer", isCurrentPage: true },
         ]}
       />
 
-      <main className="p-6">
-        <div className="mb-6">
-          <Link href="/businesses">
-            <Button variant="outline" size="sm" className="mb-4">
-              <ChevronLeft className="mr-2 h-4 w-4" /> Tilbake til bedrifter
-            </Button>
-          </Link>
-
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                {business.name}
-                {getStageBadge(business.stage)}
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                {business.industry || "Ingen bransje spesifisert"}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Panel - Metadata */}
+        <div className="w-1/3 border-r bg-background overflow-y-auto p-0">
+          <div className="px-4 py-4 flex flex-col h-full">
+            {/* Business Icon and Name */}
+            <div className="flex flex-col items-center mb-6 pt-4">
+              <div className="bg-zinc-900 p-5 rounded-md mb-3 w-[72px] h-[72px] flex items-center justify-center">
+                <Building2 className="h-10 w-10 text-white" />
+              </div>
+              <h1 className="text-xl font-medium">{business.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Lagt til for {formatRelativeDate(business.createdAt)} siden
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline">Rediger</Button>
-              <Button>Send SMS</Button>
+
+            <Separator className="mb-4" />
+
+            {/* Core Metadata - Using the simple format from the image */}
+            <div className="space-y-0 mb-6">
+              <MetadataItem
+                label="URL"
+                value={
+                  business.website ? (
+                    <div className="bg-muted/30 rounded-md px-3 py-1">
+                      {business.website}
+                    </div>
+                  ) : (
+                    "-"
+                  )
+                }
+                icon={<LinkIcon className="h-4 w-4" />}
+              />
+
+              <MetadataItem
+                label="Kontoansvarlig"
+                value={
+                  business.accountManager ? (
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${business.accountManager}&background=random`}
+                          alt={business.accountManager}
+                          className="w-5 h-5 rounded-full"
+                        />
+                      </div>
+                      {business.accountManager}
+                    </div>
+                  ) : (
+                    "-"
+                  )
+                }
+                icon={<Users className="h-4 w-4" />}
+              />
+
+              <MetadataItem
+                label="ICP"
+                value={
+                  <div className="flex items-center">
+                    <Check className="h-4 w-4 mr-1 text-green-600" />
+                    <span>
+                      {business.customerSegment === "ICP" ? "Sann" : "Falsk"}
+                    </span>
+                  </div>
+                }
+                icon={<Check className="h-4 w-4" />}
+              />
+
+              <MetadataItem
+                label="Omsetning"
+                value={
+                  business.revenue ? (
+                    <div className="bg-muted/30 rounded-md px-3 py-1">
+                      {formatCurrency(business.revenue)}
+                    </div>
+                  ) : (
+                    "-"
+                  )
+                }
+                icon={<CircleDollarSign className="h-4 w-4" />}
+              />
+
+              <MetadataItem
+                label="LinkedIn"
+                value={
+                  <div className="bg-muted/30 rounded-md px-3 py-1 truncate max-w-[180px]">
+                    linkedin.com/company/
+                    {business.name.toLowerCase().replace(/\s+/g, "-")}
+                  </div>
+                }
+                icon={<LinkIcon className="h-4 w-4" />}
+              />
+
+              {business.orgNumber && (
+                <MetadataItem
+                  label="Org.nummer"
+                  value={
+                    <div className="bg-muted/30 rounded-md px-3 py-1">
+                      {business.orgNumber}
+                    </div>
+                  }
+                  icon={<CircleDollarSign className="h-4 w-4" />}
+                />
+              )}
+
+              <div className="py-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground w-full justify-start px-2"
+                >
+                  <MoreHorizontal className="h-4 w-4 mr-2" />
+                  Mer
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="mb-4" />
+
+            {/* Holdings - Like in the image */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium mb-3">Eierskap</h3>
+              <div className="space-y-2">
+                {business.tags &&
+                business.tags.some((tag) => tag.name.includes("Holding")) ? (
+                  business.tags
+                    .filter((tag) => tag.name.includes("Holding"))
+                    .map((tag) => (
+                      <div key={tag.id} className="flex items-center px-2 py-1">
+                        <div className="h-5 w-5 rounded bg-blue-600 mr-2 flex items-center justify-center text-white text-xs">
+                          {tag.name.charAt(0)}
+                        </div>
+                        <span>{tag.name}</span>
+                      </div>
+                    ))
+                ) : (
+                  <div className="flex items-center px-2 py-1 text-muted-foreground">
+                    <span>Ingen eierskap funnet</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Separator className="mb-4" />
+
+            {/* Opportunities - Like in the image */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium mb-3">Muligheter</h3>
+              <div className="space-y-2">
+                {business.stage === "lead" ||
+                business.stage === "prospect" ||
+                business.stage === "qualified" ? (
+                  <div className="flex items-center px-2 py-1">
+                    <div className="h-5 w-5 rounded bg-zinc-900 mr-2 flex items-center justify-center text-white text-xs">
+                      {business.name.charAt(0)}
+                    </div>
+                    <span>{business.name}</span>
+                    {business.stage && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {business.stage === "lead"
+                          ? "Lead"
+                          : business.stage === "prospect"
+                          ? "Prospekt"
+                          : business.stage === "qualified"
+                          ? "Kvalifisert"
+                          : ""}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center px-2 py-1 text-muted-foreground">
+                    <span>Ingen aktive muligheter</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Separator className="mb-4" />
+
+            {/* People section - Like in the image */}
+            <div>
+              <h3 className="text-sm font-medium mb-3">
+                Personer{" "}
+                {business.contacts.length > 0 && (
+                  <span className="text-muted-foreground text-xs">
+                    Alle ({business.contacts.length})
+                  </span>
+                )}
+              </h3>
+              <div className="space-y-2">
+                {business.contacts.length > 0 ? (
+                  business.contacts.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center px-2 py-1"
+                    >
+                      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center mr-2 text-xs">
+                        {contact.name.charAt(0)}
+                      </div>
+                      <span>{contact.name}</span>
+                      {contact.isPrimary && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Primær
+                        </Badge>
+                      )}
+                      {contact.position && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({contact.position})
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center px-2 py-1 text-muted-foreground">
+                    <span>Ingen kontakter funnet</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Business Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Kontaktinformasjon
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Kontaktperson</p>
-                <p className="font-medium">{business.contactPerson || "-"}</p>
+        {/* Right Panel - Tabbed Content */}
+        <div className="w-2/3 flex flex-col overflow-hidden">
+          <Suspense
+            fallback={
+              <div className="p-6">
+                <Skeleton className="h-[300px] w-full" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Telefon</p>
-                <p className="font-medium flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  {business.phone}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">E-post</p>
-                <p className="font-medium flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  {business.email}
-                </p>
-              </div>
-              {business.website && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Nettside</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    <a
-                      href={
-                        business.website.startsWith("http")
-                          ? business.website
-                          : `https://${business.website}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {business.website}
-                    </a>
-                  </p>
-                </div>
-              )}
-              <div>
-                <p className="text-sm text-muted-foreground">Adresse</p>
-                <p className="font-medium flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-1" />
-                  {business.address ? (
-                    <span>
-                      {business.address}
-                      <br />
-                      {business.postalCode} {business.city}
-                      {business.country ? `, ${business.country}` : ""}
-                    </span>
-                  ) : (
-                    "-"
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Business Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CircleDollarSign className="h-5 w-5" />
-                Bedriftsdetaljer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Organisasjonsnummer
-                </p>
-                <p className="font-medium">{business.orgNumber || "-"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Bransje</p>
-                <p className="font-medium">{business.industry || "-"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Antall ansatte</p>
-                <p className="font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {business.numberOfEmployees || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Omsetning</p>
-                <p className="font-medium flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  {business.revenue
-                    ? new Intl.NumberFormat("nb-NO", {
-                        style: "currency",
-                        currency: "NOK",
-                      }).format(business.revenue)
-                    : "-"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Primary Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Primær kontakt
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {primaryContact ? (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Navn</p>
-                    <p className="font-medium">{primaryContact.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Stilling</p>
-                    <p className="font-medium">
-                      {primaryContact.position || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">E-post</p>
-                    <p className="font-medium flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      <a
-                        href={`mailto:${primaryContact.email}`}
-                        className="text-primary hover:underline"
-                      >
-                        {primaryContact.email}
-                      </a>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Telefon</p>
-                    <p className="font-medium flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      <a
-                        href={`tel:${primaryContact.phone}`}
-                        className="text-primary hover:underline"
-                      >
-                        {primaryContact.phone}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-4 text-center">
-                  <p className="text-muted-foreground">
-                    Ingen primær kontakt tildelt
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-2" asChild>
-                    <Link href={`/businesses/${id}?tab=contacts`}>
-                      Legg til kontakt
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs for Contacts, Activities, SMS, etc. */}
-        <Suspense
-          fallback={
-            <div className="mt-6">
-              <Skeleton className="h-[300px] w-full" />
+            }
+          >
+            <div className="flex-1 overflow-y-auto">
+              <ModifiedBusinessTabs business={business} />
             </div>
-          }
-        >
-          <BusinessTabs business={business} />
-        </Suspense>
-      </main>
-    </>
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Simple metadata item component to match the image style
+function MetadataItem({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center text-sm">
+        {icon}
+        <span className="ml-2 text-muted-foreground">{label}</span>
+      </div>
+      <div className="text-sm font-medium">{value}</div>
+    </div>
   );
 }
