@@ -24,17 +24,17 @@ export function DeleteSelectedButton({
 
       if (result.success) {
         toast.success(
-          `Successfully deleted ${result.count} ${
-            result.count === 1 ? "business" : "businesses"
-          }`
+          `${result.count} ${
+            result.count === 1 ? "bedrift" : "bedrifter"
+          } slettet`
         );
         onBusinessesDeleted();
         window.location.reload();
       } else {
-        toast.error(`Failed to delete: ${result.error}`);
+        toast.error(`Kunne ikke slette: ${result.error}`);
       }
     } catch (error) {
-      toast.error(`An error occurred: ${(error as Error).message}`);
+      toast.error(`Det oppstod en feil: ${(error as Error).message}`);
     } finally {
       setIsDeleting(false);
       setShowConfirmation(false);
@@ -51,7 +51,7 @@ export function DeleteSelectedButton({
         disabled={selectedBusinesses.length === 0}
       >
         <Trash2 className="mr-2 h-4 w-4" />
-        Delete Selected
+        Slett valgte
       </Button>
 
       <DeleteConfirmationDialog

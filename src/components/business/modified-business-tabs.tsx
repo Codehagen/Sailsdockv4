@@ -2,13 +2,23 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Check, FileText, File, Mail } from "lucide-react";
+import {
+  Clock,
+  Check,
+  FileText,
+  File,
+  Mail,
+  CalendarClock,
+} from "lucide-react";
 import { BusinessActivities } from "./business-activities";
 import { BusinessEmailHistory } from "./business-email-history";
 import { BusinessSmsHistory } from "./business-sms-history";
 import { BusinessContacts } from "./business-contacts";
 import { Business } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import { BusinessTimeline } from "@/components/timeline/business-timeline";
+import { BusinessTickets } from "./business-tickets";
+import { BusinessNotes } from "./business-notes";
 
 interface ModifiedBusinessTabsProps {
   business: Business & {
@@ -21,108 +31,113 @@ export function ModifiedBusinessTabs({ business }: ModifiedBusinessTabsProps) {
   const [activeTab, setActiveTab] = useState("timeline");
 
   return (
-    <Tabs
-      defaultValue="timeline"
-      className="w-full"
-      value={activeTab}
-      onValueChange={setActiveTab}
-    >
-      <TabsList className="grid grid-cols-5 w-full mb-6">
-        <TabsTrigger value="timeline" className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <span>Timeline</span>
-        </TabsTrigger>
-        <TabsTrigger value="tasks" className="flex items-center gap-2">
-          <Check className="h-4 w-4" />
-          <span>Tasks</span>
-        </TabsTrigger>
-        <TabsTrigger value="notes" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          <span>Notes</span>
-        </TabsTrigger>
-        <TabsTrigger value="files" className="flex items-center gap-2">
-          <File className="h-4 w-4" />
-          <span>Files</span>
-        </TabsTrigger>
-        <TabsTrigger value="emails" className="flex items-center gap-2">
-          <Mail className="h-4 w-4" />
-          <span>Emails</span>
-        </TabsTrigger>
-      </TabsList>
-
-      <div className="border rounded-md">
-        <TabsContent value="timeline" className="p-4 m-0">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Timeline</h2>
-            <Button variant="outline" size="sm">
-              Add Activity
-            </Button>
-          </div>
-          <BusinessActivities
-            businessId={business.id}
-            activities={business.activities}
+    <div className="flex flex-col h-full">
+      <div className="border-b">
+        <div className="flex">
+          <TabItem
+            icon={<Clock className="h-4 w-4" />}
+            label="Tidslinje"
+            isActive={activeTab === "timeline"}
+            onClick={() => setActiveTab("timeline")}
           />
-        </TabsContent>
-
-        <TabsContent value="tasks" className="p-4 m-0">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Tasks</h2>
-            <Button variant="outline" size="sm">
-              Add Task
-            </Button>
-          </div>
-          <EmptyState
-            title="No tasks"
-            description="There are no tasks for this business yet."
-            action="Add Task"
+          <TabItem
+            icon={<Check className="h-4 w-4" />}
+            label="Oppgaver"
+            isActive={activeTab === "tasks"}
+            onClick={() => setActiveTab("tasks")}
           />
-        </TabsContent>
-
-        <TabsContent value="notes" className="p-4 m-0">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Notes</h2>
-            <Button variant="outline" size="sm">
-              Add Note
-            </Button>
-          </div>
-          {business.notes ? (
-            <div className="border rounded-md p-4">
-              <p>{business.notes}</p>
-            </div>
-          ) : (
-            <EmptyState
-              title="No notes"
-              description="There are no notes for this business yet."
-              action="Add Note"
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="files" className="p-4 m-0">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Files</h2>
-            <Button variant="outline" size="sm">
-              Upload File
-            </Button>
-          </div>
-          <EmptyState
-            title="No files"
-            description="There are no files for this business yet."
-            action="Upload File"
+          <TabItem
+            icon={<FileText className="h-4 w-4" />}
+            label="Notater"
+            isActive={activeTab === "notes"}
+            onClick={() => setActiveTab("notes")}
           />
-        </TabsContent>
-
-        <TabsContent value="emails" className="p-4 m-0">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Emails</h2>
-            <Button variant="outline" size="sm">
-              Compose Email
-            </Button>
-          </div>
-          <BusinessEmailHistory businessId={business.id} />
-        </TabsContent>
+          <TabItem
+            icon={<Mail className="h-4 w-4" />}
+            label="E-poster"
+            isActive={activeTab === "emails"}
+            onClick={() => setActiveTab("emails")}
+          />
+        </div>
       </div>
-    </Tabs>
+
+      <div className="flex-1 p-4">
+        {activeTab === "timeline" && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Tidslinje</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1.5"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                Legg til aktivitet
+              </Button>
+            </div>
+            <BusinessTimeline
+              businessId={business.id}
+              showFilters={false}
+              includeActivities={true}
+              includeEmails={true}
+              includeSms={true}
+              includeTickets={true}
+              includeOffers={true}
+            />
+          </div>
+        )}
+
+        {activeTab === "tasks" && (
+          <div>
+            <BusinessTickets businessId={business.id} />
+          </div>
+        )}
+
+        {activeTab === "notes" && (
+          <div>
+            <BusinessNotes business={business} />
+          </div>
+        )}
+
+        {activeTab === "emails" && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">E-poster</h2>
+              <Button variant="outline" size="sm">
+                Skriv e-post
+              </Button>
+            </div>
+            <BusinessEmailHistory businessId={business.id} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabItem({
+  icon,
+  label,
+  isActive,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+        isActive
+          ? "border-black text-black"
+          : "border-transparent text-muted-foreground hover:text-black hover:border-gray-200"
+      }`}
+      onClick={onClick}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 

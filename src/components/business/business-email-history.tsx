@@ -7,10 +7,16 @@ import {
   Mail,
   Send,
   Plus,
-  ExternalLink,
-  MailOpen,
   Calendar,
   User,
+  Reply,
+  Forward,
+  MoreHorizontal,
+  Paperclip,
+  Star,
+  ExternalLink,
+  ArrowLeft,
+  Trash,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -18,7 +24,20 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fetchBusinessEmails } from "@/app/actions/email";
 import { nb } from "date-fns/locale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface EmailAttachment {
+  name: string;
+  size: number;
+  type: string;
+}
 
 interface Email {
   id: string;
@@ -30,6 +49,8 @@ interface Email {
   toEmail: string[];
   sentAt: Date;
   isRead: boolean;
+  isStarred?: boolean;
+  attachments?: EmailAttachment[];
   business?: { id: string; name: string } | null;
   contact?: { id: string; name: string; email: string } | null;
 }
@@ -46,9 +67,8 @@ export function BusinessEmailHistory({
   const [error, setError] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
   const [contactCount, setContactCount] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<"all" | "received" | "sent">(
-    "all"
-  );
+  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
 
   // Fetch emails when component mounts or businessId changes
   useEffect(() => {
@@ -68,7 +88,7 @@ export function BusinessEmailHistory({
       });
 
       if (result.success) {
-        setEmails(result.emails);
+        setEmails(result.emails || []);
         setBusinessName(result.businessName || "");
         setContactCount(result.contactCount || 0);
       } else {
@@ -89,22 +109,6 @@ export function BusinessEmailHistory({
     });
   };
 
-  // Filter emails based on active tab
-  const filteredEmails = emails.filter((email) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "received") {
-      return !email.fromEmail.includes(
-        "@" + extractDomain(businessName.toLowerCase())
-      );
-    }
-    if (activeTab === "sent") {
-      return email.fromEmail.includes(
-        "@" + extractDomain(businessName.toLowerCase())
-      );
-    }
-    return true;
-  });
-
   // Helper to extract domain
   const extractDomain = (name: string): string => {
     // Simple conversion for demo purposes
@@ -117,24 +121,33 @@ export function BusinessEmailHistory({
     return format(dateObj, "d. MMMM yyyy, HH:mm", { locale: nb });
   };
 
+  // Handle opening an email
+  const handleOpenEmail = (email: Email) => {
+    setSelectedEmail(email);
+    setShowEmailDialog(true);
+  };
+
+  // Get icon for attachment based on file type
+  const getAttachmentIcon = (type: string) => {
+    return <Paperclip className="h-4 w-4" />;
+  };
+
+  // Format file size in human-readable format
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " B";
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    else if (bytes < 1024 * 1024 * 1024)
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+  };
+
+  // Get email attachments
+  const getEmailAttachments = (email: Email): EmailAttachment[] => {
+    return email.attachments || [];
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-medium">Email History</h3>
-          {contactCount > 0 && (
-            <p className="text-sm text-muted-foreground">
-              Showing emails for {businessName} and {contactCount} contact
-              {contactCount !== 1 ? "s" : ""}
-            </p>
-          )}
-        </div>
-        <Button size="sm" className="gap-1" onClick={openEmailModal}>
-          <Plus className="h-4 w-4" />
-          <span>Send Email</span>
-        </Button>
-      </div>
-
       {error && (
         <div className="p-4 text-center border border-destructive/20 bg-destructive/10 rounded-md">
           <p className="text-destructive">{error}</p>
@@ -149,117 +162,216 @@ export function BusinessEmailHistory({
         </div>
       )}
 
-      {!error && (
-        <Tabs
-          defaultValue="all"
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as any)}
-        >
-          <TabsList className="mb-4">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="received">Received</TabsTrigger>
-            <TabsTrigger value="sent">Sent</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab}>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-[100px] w-full" />
-                ))}
-              </div>
-            ) : filteredEmails.length > 0 ? (
-              <div className="space-y-4">
-                {filteredEmails.map((email) => (
-                  <Card
-                    key={email.id}
-                    className="overflow-hidden hover:shadow-md transition-shadow"
-                  >
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-2">
-                            <Mail
-                              className={`h-4 w-4 ${
-                                email.isRead
-                                  ? "text-muted-foreground"
-                                  : "text-primary"
-                              }`}
-                            />
-                            <div className="flex flex-col">
-                              <span className="font-medium flex items-center gap-1">
-                                {email.fromName ||
-                                  email.fromEmail.split("@")[0]}
-                                {!email.isRead && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="ml-2 px-1.5 py-0 text-xs"
-                                  >
-                                    New
-                                  </Badge>
-                                )}
-                              </span>
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <User className="h-3 w-3" /> {email.fromEmail}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(email.sentAt)}
-                          </div>
-                        </div>
-
-                        <div className="text-sm font-medium">
-                          {email.subject}
-                        </div>
-
-                        <p className="text-sm line-clamp-2">
-                          {email.body?.substring(0, 120)}
-                          {email.body?.length > 120 ? "..." : ""}
-                        </p>
-
-                        <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
-                          <div className="flex gap-2">
-                            <span className="flex items-center gap-1">
-                              <MailOpen className="h-3 w-3" />
-                              To: {email.toEmail.join(", ")}
-                            </span>
-                          </div>
-
-                          {email.contact && (
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-[100px] w-full" />
+          ))}
+        </div>
+      ) : emails.length > 0 ? (
+        <div className="space-y-4">
+          {emails.map((email) => (
+            <Card
+              key={email.id}
+              className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-muted/50"
+              onClick={() => handleOpenEmail(email)}
+            >
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <Mail
+                        className={`h-4 w-4 ${
+                          email.isRead
+                            ? "text-muted-foreground"
+                            : "text-primary"
+                        }`}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium flex items-center gap-1">
+                          {email.fromName || email.fromEmail.split("@")[0]}
+                          {!email.isRead && (
                             <Badge
-                              variant="outline"
-                              className="text-xs font-normal"
+                              variant="secondary"
+                              className="ml-2 px-1.5 py-0 text-xs"
                             >
-                              {email.contact.name}
+                              New
                             </Badge>
                           )}
-                        </div>
+                          {email.isStarred && (
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" /> {email.fromEmail}
+                        </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-md border p-8 text-center">
-                <Mail className="h-12 w-12 mx-auto text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">No email history</h3>
-                <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-                  Send an email to this business to start a conversation or sync
-                  emails if you have existing communication.
-                </p>
-                <div className="mt-4 flex justify-center gap-2">
-                  <Button onClick={openEmailModal}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send first email
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(email.sentAt)}
+                    </div>
+                  </div>
+
+                  <div className="text-sm font-medium">{email.subject}</div>
+
+                  <p className="text-sm line-clamp-2">
+                    {email.body?.substring(0, 120)}
+                    {email.body?.length > 120 ? "..." : ""}
+                  </p>
+
+                  <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                    <div className="flex gap-2">
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        To: {email.toEmail.join(", ")}
+                      </span>
+                    </div>
+
+                    {email.contact && (
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {email.contact.name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border p-8 text-center">
+          <Mail className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-medium">No email history</h3>
+          <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
+            Send an email to this business to start a conversation or sync
+            emails if you have existing communication.
+          </p>
+          <div className="mt-4 flex justify-center gap-2">
+            <Button onClick={openEmailModal}>
+              <Send className="h-4 w-4 mr-2" />
+              Send first email
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Email Detail Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col p-0">
+          {selectedEmail && (
+            <>
+              <div className="p-4 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowEmailDialog(false)}
+                    className="h-8 w-8"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <DialogTitle className="text-xl font-semibold">
+                    {selectedEmail.subject || "(No subject)"}
+                  </DialogTitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Reply className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Forward className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Trash className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
+
+              <div className="p-4 border-b bg-muted/30">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">From:</div>
+                    <div>
+                      {selectedEmail.fromName || selectedEmail.fromEmail} &lt;
+                      {selectedEmail.fromEmail}&gt;
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">To:</div>
+                    <div>{selectedEmail.toEmail.join(", ")}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">Date:</div>
+                    <div>{formatDate(selectedEmail.sentAt)}</div>
+                  </div>
+                  {getEmailAttachments(selectedEmail).length > 0 && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="font-medium">Attachments:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {getEmailAttachments(selectedEmail).map(
+                          (attachment, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-1 bg-background py-1 px-2 rounded-md text-xs"
+                            >
+                              {getAttachmentIcon(attachment.type)}
+                              <span>{attachment.name}</span>
+                              <span className="text-muted-foreground">
+                                ({formatFileSize(attachment.size)})
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Tabs
+                defaultValue="text"
+                className="flex-1 flex flex-col overflow-hidden"
+              >
+                <div className="border-b px-4">
+                  <TabsList className="w-fit h-9 mt-2">
+                    <TabsTrigger value="text" className="h-8 px-3">
+                      Text
+                    </TabsTrigger>
+                    {selectedEmail.htmlBody && (
+                      <TabsTrigger value="html" className="h-8 px-3">
+                        HTML
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                </div>
+
+                <TabsContent
+                  value="text"
+                  className="flex-1 overflow-auto p-4 m-0 border-0"
+                >
+                  <div className="whitespace-pre-wrap">
+                    {selectedEmail.body}
+                  </div>
+                </TabsContent>
+
+                {selectedEmail.htmlBody && (
+                  <TabsContent
+                    value="html"
+                    className="flex-1 overflow-auto p-4 m-0 border-0"
+                  >
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: selectedEmail.htmlBody,
+                      }}
+                    />
+                  </TabsContent>
+                )}
+              </Tabs>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

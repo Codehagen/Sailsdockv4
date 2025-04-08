@@ -35,7 +35,9 @@ export function DeleteConfirmationDialog({
   };
 
   const businessText =
-    businessCount === 1 ? "this business" : `these ${businessCount} businesses`;
+    businessCount === 1
+      ? "denne bedriften"
+      : `disse ${businessCount} bedriftene`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -43,11 +45,11 @@ export function DeleteConfirmationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            Confirm Deletion
+            Bekreft sletting
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete {businessText}? This action cannot
-            be undone.
+            Er du sikker på at du vil slette {businessText}? Denne handlingen
+            kan ikke angres.
           </DialogDescription>
         </DialogHeader>
 
@@ -59,10 +61,10 @@ export function DeleteConfirmationDialog({
           />
           <div className="grid gap-1.5 leading-none">
             <Label htmlFor="delete-contacts">
-              Also delete associated contacts
+              Slett også tilknyttede kontakter
             </Label>
             <p className="text-sm text-muted-foreground">
-              If unchecked, contacts will be preserved.
+              Hvis ikke valgt, vil kontaktene beholdes.
             </p>
           </div>
         </div>
@@ -70,7 +72,7 @@ export function DeleteConfirmationDialog({
         <DialogFooter className="sm:justify-end">
           <DialogClose asChild>
             <Button type="button" variant="secondary">
-              Cancel
+              Avbryt
             </Button>
           </DialogClose>
           <Button
@@ -79,7 +81,7 @@ export function DeleteConfirmationDialog({
             onClick={handleConfirm}
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "Sletter..." : "Slett"}
           </Button>
         </DialogFooter>
       </DialogContent>
